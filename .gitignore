@@ -1,0 +1,37 @@
+# Environment & secrets — NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# Compiled binaries & build artifacts
+bin/
+backend/*.exe
+backend/*.test
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+*.tsbuildinfo
+*.next-build
+
+# Runtime data
+logs/
+backups/
+*.log
+*.gz
+
+# Go toolchain artifacts
+backend/coverage.out
+backend/vendor/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Forensic / incident artifacts — must never be re-committed
+softirq.malware.sample

@@ -1,0 +1,38 @@
+# deploy/docker-compose.dev.yml
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: maxzone-dev-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-maxzone_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-maxzone_password}
+      POSTGRES_DB: ${DB_NAME:-maxzone_db}
+    volumes:
+      - dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-maxzone_user} -d ${DB_NAME:-maxzone_db}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: maxzone-dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - dev_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  dev_pgdata:
+  dev_redisdata:
