@@ -75,6 +75,26 @@ git pull                    # fetch new code + migrations
 ./maxzone.sh up             # restarts stack, applies new migrations automatically
 ```
 
+## Continuous deployment (GitHub Actions)
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`:
+
+1. `backend` — `go vet` + `go test`
+2. `frontend` — `npm ci` + `npm run build` (ESLint + type check)
+3. `docker` — builds `Dockerfile.api`, `Dockerfile.worker`, `frontend/Dockerfile`
+4. `deploy` — only on pushes to `main`, after all tests/builds pass: SSHes into the server, `git pull`, `./maxzone.sh build`, `./maxzone.sh up` (applies pending migrations), `./maxzone.sh status`
+
+### Required repository secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `DEPLOY_HOST` | Server hostname or IP |
+| `DEPLOY_USER` | SSH user with docker + repo access |
+| `DEPLOY_SSH_KEY` | Private SSH key (add its public key to `~/.ssh/authorized_keys`) |
+| `DEPLOY_PATH` | Absolute path of the cloned repo on the server |
+
+The server must already have the repo cloned (with `deploy/.env` in place) and compose v2 installed.
+
 ## Notes / gotchas
 
 - Migrations live in `backend/migrations/*.up.sql` and are applied **in order**; applied filenames are recorded in the `schema_migrations` table so re-runs only apply what's new.
