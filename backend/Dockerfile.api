@@ -1,0 +1,26 @@
+# ==============================================================================
+# Production multi-stage build for the Maxzone API
+# ==============================================================================
+
+# ---- Build stage ----
+FROM golang:1.25 AS builder
+WORKDIR /build
+
+# Cache module downloads first
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 go build -buildvcs=false -trimpath -ldflags="-s -w" -o /out/maxzone-server ./cmd/server
+
+# ---- Runtime stage ----
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates tzdata
+ENV TZ=Asia/Dhaka
+
+WORKDIR /app
+COPY --from=builder /out/maxzone-server /app/maxzone-server
+
+EXPOSE 8080
+ENTRYPOINT ["/app/maxzone-server"]

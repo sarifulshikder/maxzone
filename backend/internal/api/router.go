@@ -62,10 +62,15 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	oltSvc := service.NewOLTService(oltRepo)
 	gisRepo := repository.NewGisRepository(db)
 	gisSvc := service.NewGisService(gisRepo)
+	ticketRepo := repository.NewTicketRepository(db)
+	ticketSvc := service.NewTicketService(ticketRepo)
+	hotspotRepo := repository.NewHotspotRepository(db)
+	hotspotSvc := service.NewHotspotService(hotspotRepo)
 
 	// Seed the initial admin user (idempotent)
 	authSvc.SeedInitialAdmin()
 	authSvc.SeedFieldTech()
+	authSvc.SeedSupport()
 
 	// --- Handler instances ---
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -76,6 +81,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	resellerHandler := handler.NewResellerHandler(resellerSvc)
 	oltHandler := handler.NewOLTHandler(oltSvc)
 	gisHandler := handler.NewGisHandler(gisSvc)
+	ticketHandler := handler.NewTicketHandler(ticketSvc)
+	hotspotHandler := handler.NewHotspotHandler(hotspotSvc)
 
 	// Auth middleware
 	authMiddleware := middleware.AuthRequired(authSvc)
@@ -255,6 +262,26 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 		{
 			adminResellerRoutes.GET("", resellerHandler.AdminListResellers)
 			adminResellerRoutes.POST("/adjust", resellerHandler.AdminAdjustWallet)
+		}
+
+		// --- Support Helpdesk (Kanban board) ---
+		ticketRoutes := v1.Group("/tickets")
+		ticketRoutes.Use(authMiddleware)
+		ticketRoutes.Use(middleware.RequireRole("SUPER_ADMIN", "SUPPORT"))
+		{
+			ticketRoutes.GET("", ticketHandler.ListTickets)
+			ticketRoutes.POST("", ticketHandler.CreateTicket)
+			ticketRoutes.GET("/:id", ticketHandler.GetTicketDetail)
+			ticketRoutes.PATCH("/:id/status", ticketHandler.UpdateTicketStatus)
+			ticketRoutes.POST("/:id/replies", ticketHandler.ReplyToTicket)
+		}
+
+		// --- Hotspot Captive Portal (public — unauthenticated) ---
+		hotspotRoutes := v1.Group("/hotspot")
+		{
+			hotspotRoutes.POST("/voucher/login", hotspotHandler.LoginWithVoucher)
+			hotspotRoutes.POST("/otp/request", hotspotHandler.RequestOTP)
+			hotspotRoutes.POST("/otp/verify", hotspotHandler.VerifyOTP)
 		}
 	}
 

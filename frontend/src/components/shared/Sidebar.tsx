@@ -82,9 +82,10 @@ const navItems = [
   },
   {
     name: "Helpdesk NOC",
-    href: "/admin/support",
+    href: "/support",
     icon: LifeBuoy,
-    badge: "Phase 8",
+    badge: "Live",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   },
   {
     name: "System Settings",

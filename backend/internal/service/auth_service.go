@@ -287,6 +287,51 @@ func (s *AuthService) SeedFieldTech() {
 	log.Printf("[AUTH] ✅ Field tech user '%s' seeded successfully (password: %s)", username, password)
 }
 
+// SeedSupport creates a demo NOC support agent for the helpdesk portal
+func (s *AuthService) SeedSupport() {
+	username := os.Getenv("SUPPORT_USERNAME")
+	password := os.Getenv("SUPPORT_PASSWORD")
+
+	if username == "" {
+		username = "support"
+	}
+	if password == "" {
+		password = "Support@2026"
+	}
+
+	existing, err := s.userRepo.FindByUsername(username)
+	if err == nil && existing != nil {
+		log.Printf("[AUTH] Support user '%s' already exists, skipping seed", username)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("[AUTH] Failed to hash support password: %v", err)
+		return
+	}
+
+	email := "support@maxzone.local"
+	phone := "01722222222"
+	supportUser := domain.User{
+		ID:           "66666666-1111-1111-1111-666666666666",
+		RoleID:       "66666666-6666-6666-6666-666666666666", // SUPPORT
+		Username:     username,
+		Email:        &email,
+		Phone:        phone,
+		PasswordHash: string(hash),
+		FirstName:    "NOC",
+		LastName:     strPtr("Support"),
+		IsActive:     true,
+	}
+
+	if err := s.db.Create(&supportUser).Error; err != nil {
+		log.Printf("[AUTH] Failed to seed support user: %v", err)
+		return
+	}
+	log.Printf("[AUTH] ✅ Support user '%s' seeded successfully (password: %s)", username, password)
+}
+
 func (s *AuthService) generateAccessToken(user *domain.User) (string, error) {
 	expirationMinutes := 15
 	roleName := "SUPER_ADMIN"

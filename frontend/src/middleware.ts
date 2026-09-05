@@ -28,6 +28,15 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Protect support helpdesk
+  if (pathname.startsWith('/support')) {
+    if (!token) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   // Customer portal is public (PPPoE self-care — customers use their own credentials via API)
   // No server-side redirect needed; API calls handle auth
 
@@ -42,6 +51,7 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/reseller/:path*',
+    '/support/:path*',
     '/dashboard',
     '/login',
   ],

@@ -399,6 +399,74 @@ export interface FieldTask {
   longitude?: number | null;
 }
 
+// --- Phase 8: Support Helpdesk & Hotspot Captive Portal ---
+
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TicketCategory = 'BILLING' | 'CONNECTIVITY' | 'EQUIPMENT' | 'INSTALLATION' | 'OTHER';
+
+export interface Ticket {
+  id: string;
+  ticket_no: string;
+  customer_id?: string | null;
+  subject: string;
+  description: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  created_by: string;
+  assigned_to?: string | null;
+  resolved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  customer_name?: string | null;
+  customer_username?: string | null;
+  created_by_name?: string | null;
+  reply_count: number;
+}
+
+export interface TicketReply {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  message: string;
+  is_internal: boolean;
+  created_at: string;
+  author_name?: string | null;
+}
+
+export interface TicketDetail {
+  ticket: Ticket;
+  replies: TicketReply[];
+}
+
+export interface CreateTicketPayload {
+  customer_id?: string | null;
+  subject: string;
+  description?: string;
+  category?: string;
+  priority?: string;
+}
+
+export interface HotspotSession {
+  method: 'VOUCHER' | 'OTP';
+  phone?: string | null;
+  mac?: string | null;
+  plan_name: string;
+  data_limit: string;
+  validity_days: number;
+  session_id: string;
+  expires_at: string;
+  note: string;
+}
+
+export interface HotspotOTPResponse {
+  sent: boolean;
+  phone: string;
+  expires_in_sec: number;
+  dev_code: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

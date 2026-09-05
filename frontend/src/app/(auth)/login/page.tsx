@@ -33,7 +33,8 @@ function LoginForm() {
   const getTargetUrl = useCallback((role?: string) => {
     if (explicitRedirect) {
       const roleAllowed =
-        (role === "SUPER_ADMIN" || role === "SUPPORT") && explicitRedirect.startsWith("/admin") ||
+        (role === "SUPER_ADMIN" || role === "SUPPORT") &&
+          (explicitRedirect.startsWith("/admin") || explicitRedirect.startsWith("/support")) ||
         (role === "RESELLER" || role === "SUB_RESELLER") && explicitRedirect.startsWith("/reseller") ||
         role === "CUSTOMER" && explicitRedirect.startsWith("/customer") ||
         role === "FIELD_TECH" && explicitRedirect.startsWith("/field");
@@ -42,6 +43,7 @@ function LoginForm() {
     if (role === "RESELLER" || role === "SUB_RESELLER") return "/reseller/dashboard";
     if (role === "CUSTOMER") return "/customer/dashboard";
     if (role === "FIELD_TECH") return "/field/dashboard";
+    if (role === "SUPPORT") return "/support";
     return "/admin/dashboard";
   }, [explicitRedirect]);
 

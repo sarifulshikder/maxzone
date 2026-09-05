@@ -1,0 +1,144 @@
+# ==============================================================================
+# Maxzone ISP-ERP — Production Stack
+#
+#   Services: PostgreSQL+PostGIS, Redis, API, Worker, Next.js, Caddy (auto-SSL)
+#
+#   Get started:
+#     cp .env.example .env     # set SITE_ADDRESS, DB secrets, JWT_SECRET
+#     ./maxzone.sh up
+# ==============================================================================
+name: maxzone
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: maxzone-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-maxzone_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:-maxzone_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-maxzone_user} -d ${DB_NAME:-maxzone_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: maxzone-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.api
+    container_name: maxzone-api
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_PORT: "8080"
+      APP_URL: "https://${SITE_ADDRESS:-maxzone.local}"
+      FRONTEND_URL: "https://${SITE_ADDRESS:-maxzone.local}"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-maxzone_user}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      DB_NAME: ${DB_NAME:-maxzone_db}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-admin}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?set INITIAL_ADMIN_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - maxzone
+
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.worker
+    container_name: maxzone-worker
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-maxzone_user}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      DB_NAME: ${DB_NAME:-maxzone_db}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+      WORKER_ENABLE_INVOICES: ${WORKER_ENABLE_INVOICES:-false}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - maxzone
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: maxzone-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: /api/v1
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - maxzone
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: maxzone-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}   # e.g. maxzone.example.com
+      ACME_EMAIL: ${ACME_EMAIL:-admin@maxzone.local}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - maxzone
+
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  caddyconfig:
+
+networks:
+  maxzone:
+    driver: bridge

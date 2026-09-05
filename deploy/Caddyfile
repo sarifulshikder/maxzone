@@ -1,0 +1,45 @@
+# ==============================================================================
+# Maxzone production edge — Caddy reverse proxy with automatic HTTPS (ACME)
+#
+#   SITE_ADDRESS (from docker-compose env) controls TLS:
+#     - "maxzone.example.com"     → Lets Encrypt auto-SSL (80 + 443)
+#     - ":80"                     → plain HTTP behind a manual TLS terminator
+# ==============================================================================
+
+{
+	admin off
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode gzip zstd
+
+	# API — route /api/* straight to the backend
+	handle /api/* {
+		reverse_proxy api:8080 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up Host {host}
+		}
+	}
+
+	# Everything else — the Next.js frontend
+	handle {
+		reverse_proxy frontend:3000 {
+			header_up X-Forwarded-Proto {scheme}
+			header_up Host {host}
+		}
+	}
+
+	header {
+		-X-Forwarded-For
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
