@@ -17,6 +17,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// seedPendingHash marks a user created by a migration whose password has not
+// been set yet. The seed functions hydrate it with the configured password.
+const seedPendingHash = "mz:seed:pending"
+
 // AuthService handles authentication and token management
 type AuthService struct {
 	userRepo  *repository.UserRepository
@@ -211,7 +215,13 @@ func (s *AuthService) SeedInitialAdmin() {
 	// Check if admin already exists
 	existing, _ := s.userRepo.FindByUsername(username)
 	if existing != nil {
-		log.Printf("[AUTH] Admin user '%s' already exists, skipping seed", username)
+		if existing.PasswordHash != seedPendingHash {
+			log.Printf("[AUTH] Admin user '%s' already exists, skipping seed", username)
+			return
+		}
+		// Seeded by migration with a sentinel hash → hydrate with env password
+		s.upsertSeedUser(existing, "11111111-1111-1111-1111-111111111111", "11111111-1111-1111-1111-111111111111",
+			username, password, email, phone, "System", "Admin")
 		return
 	}
 
@@ -256,7 +266,13 @@ func (s *AuthService) SeedFieldTech() {
 
 	existing, err := s.userRepo.FindByUsername(username)
 	if err == nil && existing != nil {
-		log.Printf("[AUTH] Field tech user '%s' already exists, skipping seed", username)
+		if existing.PasswordHash != seedPendingHash {
+			log.Printf("[AUTH] Field tech user '%s' already exists, skipping seed", username)
+			return
+		}
+		// Seeded by migration with a sentinel hash → hydrate with env password
+		s.upsertSeedUser(existing, "55555555-1111-1111-1111-111111111111", "55555555-5555-5555-5555-555555555555",
+			username, password, "field@maxzone.local", "01711111111", "Field", "Technician")
 		return
 	}
 
@@ -301,7 +317,13 @@ func (s *AuthService) SeedSupport() {
 
 	existing, err := s.userRepo.FindByUsername(username)
 	if err == nil && existing != nil {
-		log.Printf("[AUTH] Support user '%s' already exists, skipping seed", username)
+		if existing.PasswordHash != seedPendingHash {
+			log.Printf("[AUTH] Support user '%s' already exists, skipping seed", username)
+			return
+		}
+		// Seeded by migration with a sentinel hash → hydrate with env password
+		s.upsertSeedUser(existing, "66666666-1111-1111-1111-666666666666", "66666666-6666-6666-6666-666666666666",
+			username, password, "support@maxzone.local", "01722222222", "NOC", "Support")
 		return
 	}
 
@@ -330,6 +352,30 @@ func (s *AuthService) SeedSupport() {
 		return
 	}
 	log.Printf("[AUTH] ✅ Support user '%s' seeded successfully (password: %s)", username, password)
+}
+
+// upsertSeedUser hydrates a migration-seeded demo user with its real password
+func (s *AuthService) upsertSeedUser(u *domain.User, id, roleID, username, password, email, phone, first, last string) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("[AUTH] Failed to hash password for '%s': %v", username, err)
+		return
+	}
+	updates := map[string]any{
+		"id":            id,
+		"role_id":       roleID,
+		"email":         email,
+		"phone":         phone,
+		"password_hash": string(hash),
+		"first_name":    first,
+		"last_name":     last,
+		"is_active":     true,
+	}
+	if err := s.db.Model(u).Updates(updates).Error; err != nil {
+		log.Printf("[AUTH] Failed to hydrate seed user '%s': %v", username, err)
+		return
+	}
+	log.Printf("[AUTH] ✅ Seed user '%s' hydrated (password: %s)", username, password)
 }
 
 func (s *AuthService) generateAccessToken(user *domain.User) (string, error) {

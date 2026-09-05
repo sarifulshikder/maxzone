@@ -6,6 +6,7 @@
 #     ./maxzone.sh up          build + start the whole production stack (Caddy TLS)
 #     ./maxzone.sh down        stop the stack (keeps data volumes)
 #     ./maxzone.sh build       rebuild images only
+#     ./maxzone.sh migrate     apply pending SQL migrations to the production DB
 #     ./maxzone.sh status      container + health status
 #     ./maxzone.sh logs [svc]  tail logs (default: all)
 #     ./maxzone.sh restart     restart the stack
@@ -17,6 +18,15 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${REPO_DIR}/deploy/docker-compose.yml"
 COMPOSE="docker compose -f ${COMPOSE_FILE}"
+
+# Load production secrets from deploy/.env (compose also reads it automatically)
+ENV_FILE="${REPO_DIR}/deploy/.env"
+if [ -f "${ENV_FILE}" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "${ENV_FILE}"
+  set +a
+fi
 
 GO_IMG="golang:1.25"
 GOMODCACHE="${MZ_GOMODCACHE:-$(mktemp -d /tmp/maxzone-gomod.XXXXXX)}"
@@ -55,11 +65,55 @@ PY
   fi
 }
 
+wait_for_postgres() {
+  echo "==> Waiting for PostgreSQL to accept connections"
+  for i in $(seq 1 60); do
+    if ${COMPOSE} exec -T postgres pg_isready -U "${DB_USER:-maxzone_user}" -d "${DB_NAME:-maxzone_db}" >/dev/null 2>&1; then
+      echo "==> PostgreSQL ready"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "❌ PostgreSQL not ready after 120s" >&2
+  return 1
+}
+
+run_migrations() {
+  echo "==> Applying pending migrations to the production database"
+  ${COMPOSE} exec -T postgres psql -v ON_ERROR_STOP=1 -U "${DB_USER:-maxzone_user}" "${DB_NAME:-maxzone_db}" \
+    -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMPTZ DEFAULT NOW());" >/dev/null
+  for f in "${REPO_DIR}"/backend/migrations/*.up.sql; do
+    name="$(basename "${f}")"
+    applied="$(${COMPOSE} exec -T postgres psql -tA -U "${DB_USER:-maxzone_user}" "${DB_NAME:-maxzone_db}" \
+      -c "SELECT 1 FROM schema_migrations WHERE filename = '${name}';" | tr -d '[:space:]')"
+    if [ "${applied}" = "1" ]; then
+      echo "    - ${name} (already applied)"
+      continue
+    fi
+    ${COMPOSE} exec -T postgres psql -v ON_ERROR_STOP=1 -U "${DB_USER:-maxzone_user}" "${DB_NAME:-maxzone_db}" -f - < "${f}"
+    ${COMPOSE} exec -T postgres psql -U "${DB_USER:-maxzone_user}" "${DB_NAME:-maxzone_db}" \
+      -c "INSERT INTO schema_migrations (filename) VALUES ('${name}');" >/dev/null
+    echo "    - ${name}  ... OK"
+  done
+  echo "==> Migrations complete"
+}
+
 # ---------------- commands ----------------
 case "${1:-help}" in
   up)
     echo "==> Building & starting the production stack"
-    exec ${COMPOSE} up -d --build
+    ${COMPOSE} up -d --build
+    wait_for_postgres
+    run_migrations
+    echo "==> Restarting api+worker so first-boot seeds run after migrations"
+    ${COMPOSE} restart api worker
+    ${COMPOSE} up -d --wait
+    echo "==> ✅ Stack is up — open http://${SITE_ADDRESS:-localhost}"
+    ;;
+  migrate)
+    ${COMPOSE} up -d postgres
+    wait_for_postgres
+    run_migrations
     ;;
   down)
     echo "==> Stopping the production stack"

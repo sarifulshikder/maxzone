@@ -64,6 +64,14 @@ INSERT INTO roles (id, name, description) VALUES
 ('66666666-6666-6666-6666-666666666666', 'SUPPORT', 'NOC helpdesk and ticket support')
 ON CONFLICT (name) DO NOTHING;
 
+-- Seed demo users (sentinel hash means "apply env password on first app boot").
+-- SeedInitialAdmin / SeedFieldTech / SeedSupport hydrate these on startup.
+INSERT INTO users (id, role_id, username, email, phone, password_hash, first_name, last_name, is_active) VALUES
+('11111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 'admin',  'admin@maxzone.local',  '01700000000', 'mz:seed:pending', 'System', 'Admin',      TRUE),
+('55555555-1111-1111-1111-111111111111', '55555555-5555-5555-5555-555555555555', 'field',  'field@maxzone.local',  '01711111111', 'mz:seed:pending', 'Field',  'Technician', TRUE),
+('66666666-1111-1111-1111-666666666666', '66666666-6666-6666-6666-666666666666', 'support', 'support@maxzone.local', '01722222222', 'mz:seed:pending', 'NOC',    'Support',    TRUE)
+ON CONFLICT (username) DO NOTHING;
+
 -- Seed default system settings
 INSERT INTO system_settings (key, value, category, description) VALUES
 ('company_name', 'Maxzone ISP Network', 'GENERAL', 'ISP business brand name'),

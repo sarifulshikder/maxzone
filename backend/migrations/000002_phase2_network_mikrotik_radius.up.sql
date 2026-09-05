@@ -97,3 +97,20 @@ CREATE TABLE IF NOT EXISTS radacct (
 CREATE INDEX IF NOT EXISTS idx_radacct_active ON radacct(username, acctstoptime);
 CREATE INDEX IF NOT EXISTS idx_radacct_nasip ON radacct(nasipaddress);
 CREATE INDEX IF NOT EXISTS idx_radacct_session ON radacct(acctsessionid);
+
+-- 7. Simulated default router (idempotent) — referenced by Phase 5 service-account seeds
+INSERT INTO nas_routers (id, name, ip_address, api_port, api_username, api_password_encrypted, radius_secret, coa_port, router_os_version, is_simulated, is_active)
+VALUES (
+    'e7dfd60f-896e-4f79-9e14-2b9eec143650',
+    'CCR-2004 Core',
+    '10.0.0.1',
+    8728,
+    'admin',
+    'simulated:maxzone',
+    'maxzone-radius-secret',
+    3799,
+    'v7',
+    TRUE,
+    TRUE
+)
+ON CONFLICT DO NOTHING;
