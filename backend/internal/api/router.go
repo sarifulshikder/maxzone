@@ -58,6 +58,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	billingSvc := service.NewBillingService(billingRepo, customerRepo, pkgRepo, routerRepo)
 	resellerRepo := repository.NewResellerRepository(db)
 	resellerSvc := service.NewResellerService(resellerRepo, customerRepo, routerRepo)
+	oltRepo := repository.NewOLTRepository(db)
+	oltSvc := service.NewOLTService(oltRepo)
 
 	// Seed the initial admin user (idempotent)
 	authSvc.SeedInitialAdmin()
@@ -69,6 +71,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	customerHandler := handler.NewCustomerHandler(customerSvc)
 	billingHandler := handler.NewBillingHandler(billingSvc)
 	resellerHandler := handler.NewResellerHandler(resellerSvc)
+	oltHandler := handler.NewOLTHandler(oltSvc)
 
 	// Auth middleware
 	authMiddleware := middleware.AuthRequired(authSvc)
@@ -199,6 +202,23 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 			billingRoutes.POST("/pay/manual", authMiddleware, middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), billingHandler.RecordManualPayment)
 			billingRoutes.GET("/payments", authMiddleware, billingHandler.ListPayments)
 			billingRoutes.POST("/customer/expire", authMiddleware, middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), billingHandler.ArtificiallyExpireCustomer)
+		}
+
+		// --- OLT Telemetry & PON Optical Management ---
+		oltRoutes := v1.Group("/olt")
+		oltRoutes.Use(authMiddleware)
+		{
+			oltRoutes.GET("/devices", oltHandler.ListOLTs)
+			oltRoutes.POST("/devices", middleware.RequireRole("SUPER_ADMIN"), oltHandler.CreateOLT)
+			oltRoutes.GET("/devices/:id", oltHandler.GetOLT)
+			oltRoutes.PUT("/devices/:id", middleware.RequireRole("SUPER_ADMIN"), oltHandler.UpdateOLT)
+			oltRoutes.DELETE("/devices/:id", middleware.RequireRole("SUPER_ADMIN"), oltHandler.DeleteOLT)
+			oltRoutes.POST("/devices/:id/ping", oltHandler.TestConnection)
+			oltRoutes.POST("/devices/:id/poll", oltHandler.PollPorts)
+			oltRoutes.GET("/devices/:id/detail", oltHandler.GetOLTDetail)
+			oltRoutes.GET("/devices/:id/discovered", oltHandler.ListDiscoveredONUs)
+			oltRoutes.POST("/devices/:id/onus/:onuId/authorize", middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), oltHandler.AuthorizeONU)
+			oltRoutes.PUT("/devices/:id/onus/:onuId", middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), oltHandler.UpdateONU)
 		}
 
 		// --- Reseller Portal & Double-Entry Wallet Ledger ---

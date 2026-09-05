@@ -168,13 +168,78 @@ export interface RouterStats {
   sessions: ActiveSession[];
 }
 
+export type OLTStatus = 'ONLINE' | 'OFFLINE' | 'ERROR' | 'UNKNOWN';
+export type ONUStatus = 'ONLINE' | 'OFFLINE' | 'LOS' | 'DISCOVERED' | 'UNKNOWN';
+export type ONUHealth = 'OPTIMAL' | 'GOOD' | 'WARNING' | 'CRITICAL' | 'UNKNOWN';
+export type SNMPVersion = 'v2c' | 'v3';
+
 export interface OLTDevice {
   id: string;
   name: string;
   vendor: 'HUAWEI' | 'ZTE' | 'VSOL' | 'BDCOM' | 'CDATA' | 'FIBERHOME';
+  model: string;
   ip_address: string;
+  snmp_version: SNMPVersion;
+  snmp_port: number;
+  snmp_community?: string;
+  snmp_username?: string;
+  snmp_auth_protocol?: string;
+  snmp_priv_protocol?: string;
+  oid_profile: string;
   is_simulated: boolean;
   is_active: boolean;
+  last_status: OLTStatus;
+  last_polled_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OLTPingResult {
+  status: 'ONLINE' | 'OFFLINE';
+  latency_ms: number;
+  vendor: string;
+  model: string;
+  software_version: string;
+  uptime: string;
+}
+
+export interface ONUDevice {
+  id: string;
+  olt_id: string;
+  pon_port_id: string;
+  serial_number: string;
+  name: string;
+  mac_address?: string;
+  rx_power_db?: number | null;
+  tx_power_db?: number | null;
+  temperature_c?: number | null;
+  distance_m?: number | null;
+  status: ONUStatus;
+  health: ONUHealth;
+  registered: boolean;
+  last_discovered_at?: string;
+  last_polled_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PONPortDetail {
+  id: string;
+  name: string;
+  frame: number;
+  slot: number;
+  port: number;
+  onboarded_onts: number;
+  max_onts: number;
+  onus: ONUDevice[];
+}
+
+export interface OLTDetail {
+  olt: OLTDevice;
+  ports: PONPortDetail[];
+  discovered_queue: ONUDevice[];
+  total_onus: number;
+  unregistered_onus: number;
 }
 
 export interface Invoice {

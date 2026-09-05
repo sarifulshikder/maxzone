@@ -49,7 +49,8 @@ const navItems = [
     name: "OLT & PON",
     href: "/admin/olt",
     icon: Zap,
-    badge: "Phase 6",
+    badge: "Live",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   },
   {
     name: "Packages",

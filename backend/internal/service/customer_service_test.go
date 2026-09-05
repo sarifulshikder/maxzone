@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -23,6 +24,9 @@ func (m *mockCustomerRepo) ListByReseller(ctx context.Context, resellerID, searc
 }
 
 func (m *mockCustomerRepo) FindByID(ctx context.Context, id string) (*domain.Customer360DetailDTO, error) {
+	if m.createdCustomer == nil || m.createdAccount == nil {
+		return nil, errors.New("Customer360Detail not found")
+	}
 	return &domain.Customer360DetailDTO{
 		Customer:       *m.createdCustomer,
 		ServiceAccount: *m.createdAccount,
