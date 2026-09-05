@@ -60,9 +60,12 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	resellerSvc := service.NewResellerService(resellerRepo, customerRepo, routerRepo)
 	oltRepo := repository.NewOLTRepository(db)
 	oltSvc := service.NewOLTService(oltRepo)
+	gisRepo := repository.NewGisRepository(db)
+	gisSvc := service.NewGisService(gisRepo)
 
 	// Seed the initial admin user (idempotent)
 	authSvc.SeedInitialAdmin()
+	authSvc.SeedFieldTech()
 
 	// --- Handler instances ---
 	authHandler := handler.NewAuthHandler(authSvc)
@@ -72,6 +75,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 	billingHandler := handler.NewBillingHandler(billingSvc)
 	resellerHandler := handler.NewResellerHandler(resellerSvc)
 	oltHandler := handler.NewOLTHandler(oltSvc)
+	gisHandler := handler.NewGisHandler(gisSvc)
 
 	// Auth middleware
 	authMiddleware := middleware.AuthRequired(authSvc)
@@ -219,6 +223,17 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, rdb *redis.Client) *gin.Engine
 			oltRoutes.GET("/devices/:id/discovered", oltHandler.ListDiscoveredONUs)
 			oltRoutes.POST("/devices/:id/onus/:onuId/authorize", middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), oltHandler.AuthorizeONU)
 			oltRoutes.PUT("/devices/:id/onus/:onuId", middleware.RequireRole("SUPER_ADMIN", "SUPPORT"), oltHandler.UpdateONU)
+		}
+
+		// --- FTTH GIS Fiber Map & Field Technician Portal ---
+		gisRoutes := v1.Group("/gis")
+		gisRoutes.Use(authMiddleware)
+		gisRoutes.Use(middleware.RequireRole("SUPER_ADMIN", "SUPPORT", "FIELD_TECH"))
+		{
+			gisRoutes.GET("/map", gisHandler.GetMapData)
+			gisRoutes.POST("/nearest-box", gisHandler.FindNearestBox)
+			gisRoutes.GET("/onu-signal", gisHandler.GetONUSignal)
+			gisRoutes.GET("/tasks", gisHandler.ListFieldTasks)
 		}
 
 		// --- Reseller Portal & Double-Entry Wallet Ledger ---

@@ -242,6 +242,51 @@ func (s *AuthService) SeedInitialAdmin() {
 	log.Printf("[AUTH] ✅ Admin user '%s' seeded successfully (password: %s)", username, password)
 }
 
+// SeedFieldTech creates a demo field technician account for the mobile portal
+func (s *AuthService) SeedFieldTech() {
+	username := os.Getenv("FIELD_TECH_USERNAME")
+	password := os.Getenv("FIELD_TECH_PASSWORD")
+
+	if username == "" {
+		username = "field"
+	}
+	if password == "" {
+		password = "Field@2026"
+	}
+
+	existing, err := s.userRepo.FindByUsername(username)
+	if err == nil && existing != nil {
+		log.Printf("[AUTH] Field tech user '%s' already exists, skipping seed", username)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("[AUTH] Failed to hash field tech password: %v", err)
+		return
+	}
+
+	email := "field@maxzone.local"
+	phone := "01711111111"
+	fieldTech := domain.User{
+		ID:           "55555555-1111-1111-1111-111111111111",
+		RoleID:       "55555555-5555-5555-5555-555555555555", // FIELD_TECH
+		Username:     username,
+		Email:        &email,
+		Phone:        phone,
+		PasswordHash: string(hash),
+		FirstName:    "Field",
+		LastName:     strPtr("Technician"),
+		IsActive:     true,
+	}
+
+	if err := s.db.Create(&fieldTech).Error; err != nil {
+		log.Printf("[AUTH] Failed to seed field tech user: %v", err)
+		return
+	}
+	log.Printf("[AUTH] ✅ Field tech user '%s' seeded successfully (password: %s)", username, password)
+}
+
 func (s *AuthService) generateAccessToken(user *domain.User) (string, error) {
 	expirationMinutes := 15
 	roleName := "SUPER_ADMIN"

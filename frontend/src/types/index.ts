@@ -311,6 +311,94 @@ export interface ResellerWallet {
   credit_limit: number;
 }
 
+export interface GISOLT {
+  id: string;
+  name: string;
+  vendor: string;
+  model: string;
+  last_status: OLTStatus;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface GISSplitter {
+  id: string;
+  name: string;
+  code: string;
+  split_ratio: string;
+  ports_used: number;
+  max_ports: number;
+  address: string;
+  needs_service: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  available: number;
+}
+
+export interface GISTJBox {
+  id: string;
+  name: string;
+  code: string;
+  box_number: number;
+  ports_used: number;
+  max_ports: number;
+  address: string;
+  needs_service: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  available: number;
+}
+
+export interface GISFiberCable {
+  id: string;
+  name: string;
+  cable_type: 'FEEDER' | 'DISTRIBUTION' | 'DROP';
+  core_count: number;
+  jacket_color: string;
+  from_node: string;
+  to_node: string;
+  from: [number, number];
+  to: [number, number];
+}
+
+export interface GISMapData {
+  olts: GISOLT[];
+  splitters: GISSplitter[];
+  boxes: GISTJBox[];
+  cables: GISFiberCable[];
+}
+
+export interface NearestBoxResult {
+  box: GISTJBox;
+  distance_m: number;
+}
+
+export interface ONUSignal {
+  serial_number: string;
+  mac_address: string;
+  olt_name: string;
+  pon_port: string;
+  status: string;
+  health: ONUHealth;
+  rx_power_db?: number | null;
+  tx_power_db?: number | null;
+  temperature_c?: number | null;
+  distance_m?: number | null;
+  last_polled_at?: string;
+}
+
+export interface FieldTask {
+  type: 'BOX' | 'SPLITTER';
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  ports_used: number;
+  max_ports: number;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

@@ -77,7 +77,8 @@ const navItems = [
     name: "GIS Fiber Map",
     href: "/admin/gis",
     icon: MapPin,
-    badge: "Phase 7",
+    badge: "Live",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   },
   {
     name: "Helpdesk NOC",

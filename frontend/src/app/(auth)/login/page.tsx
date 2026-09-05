@@ -35,11 +35,13 @@ function LoginForm() {
       const roleAllowed =
         (role === "SUPER_ADMIN" || role === "SUPPORT") && explicitRedirect.startsWith("/admin") ||
         (role === "RESELLER" || role === "SUB_RESELLER") && explicitRedirect.startsWith("/reseller") ||
-        role === "CUSTOMER" && explicitRedirect.startsWith("/customer");
+        role === "CUSTOMER" && explicitRedirect.startsWith("/customer") ||
+        role === "FIELD_TECH" && explicitRedirect.startsWith("/field");
       if (roleAllowed) return explicitRedirect;
     }
     if (role === "RESELLER" || role === "SUB_RESELLER") return "/reseller/dashboard";
     if (role === "CUSTOMER") return "/customer/dashboard";
+    if (role === "FIELD_TECH") return "/field/dashboard";
     return "/admin/dashboard";
   }, [explicitRedirect]);
 
